@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saarnapeli</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #game {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        #game::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('kirkko.png');
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+        }
+        .circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: rgba(255, 0, 0, 0.6);
+            position: absolute;
+            cursor: pointer;
+            animation: pop 1s ease;
+        }
+        .circle:active {
+            background-color: rgba(0, 255, 0, 0.6);
+        }
+        #startButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #efedee;
+        }
+        #endScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        #infoBox {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 10;
+        }
+        @keyframes pop {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="infoBox">Emme käytä keksejä, vaan ehtoollisleipää ja vähän viiniä.</div>
+        <div id="score">Parannuksen armon tehneitä: 0</div>
+        <div id="endScreen">
+            <h2>Jumalan rauhaa!</h2>
+            <p id="finalScore">Parannuksen armon tehneitä: 0</p>
+            <button id="restartButton">Pidä uusi puhe</button>
+        </div>
+        <button id="startButton">Aloita peli</button>
+    </div>
+    
+    <audio id="backgroundMusic" loop>
+        <source src="https://www.srk.fi/media/record/001436_Ville_Suutari.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hitSound" src="./jeesuksennimessajaveressa.mp3" preload="auto"></audio>
+    
+    
+    <script>
+        const game = document.getElementById('game');
+        const startButton = document.getElementById('startButton');
+        const scoreElement = document.getElementById('score');
+        const endScreen = document.getElementById('endScreen');
+        const finalScoreElement = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const infoBox = document.getElementById('infoBox');
+        
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+        
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+        
+        function startGame() {
+            startButton.style.display = 'none';
+            backgroundMusic.play().catch((err) => {
+                console.error('Taustamusiikin toisto epäonnistui:', err);
+            });
+            score = 0;
+            scoreElement.innerText = `Parannuksen armon tehneitä: ${score}`;
+            timeLeft = 30;  // Peli kestää 30 sekuntia
+            gameInterval = setInterval(() => {
+                randomPosition();
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(gameInterval);
+                    endGame();
+                }
+            }, 700);
+        }
+        
+        function randomPosition() {
+            const circle = document.createElement('div');
+            circle.className = 'circle';
+            
+            const size = 60;
+            const maxX = game.clientWidth - size;
+            const maxY = game.clientHeight - size;
+            
+            circle.style.left = Math.floor(Math.random() * maxX) + 'px';
+            circle.style.top = Math.floor(Math.random() * maxY) + 'px';
+            
+            // Ladataan ääni ja soitetaan se, kun punainen pallo klikataan
+            const hitSound = document.getElementById('hitSound');
+            
+            circle.onclick = () => {
+                score++;
+                scoreElement.innerText = `Parannuksen armon tehneitä: ${score}`;
+                hitSound.play(); // Soitetaan ääni, kun pallo klikataan
+                circle.remove();
+            };
+            
+            game.appendChild(circle);
+            
+            // Pidennettiin näkyvyyttä, nyt pallo poistetaan satunnaisella aikavälillä
+            setTimeout(() => {
+                if (circle.parentNode) circle.remove();
+            }, Math.random() * 12000); // Pallon poistumisaika satunnaisesti välillä 0-12 sekuntia
+        }
+        
+        
+        function endGame() {
+            finalScoreElement.innerText = `Parannuksen armon tehneitä: ${score}`;
+            highScores.push(score);
+            highScores.sort((a, b) => b - a); // Järjestetään tulokset laskevasti
+            highScores = highScores.slice(0, 10); // Otetaan vain 10 parasta tulosta
+            localStorage.setItem('highScores', JSON.stringify(highScores));
+            displayHighScores();
+            endScreen.style.display = 'block';
+        }
+        
+        function displayHighScores() {
+            let highScoresList = '<h3>Top 10 Parannuksen armon tehneitä</h3><ul>';
+                highScores.forEach((score, index) => {
+                    highScoresList += `<li>${index + 1}. ${score} Parannuksen armon tehneitä</li>`;
+                });
+                highScoresList += '</ul>';
+                endScreen.innerHTML = highScoresList; // Poistetaan alkuperäinen sisältö
+                endScreen.appendChild(restartButton); // Lisää restartButton takaisin
+            }
+            
+            
+            function restartGame() {
+                console.log("restart");
+                endScreen.style.display = 'none';
+                startGame();
+            }
+        </script>
+    </body>
+    </html>
+    
