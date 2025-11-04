@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tehtäväräjäytin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .guide {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .game-canvas {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            height: 400px;
+            display: block;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn.success {
+            background: linear-gradient(45deg, #55a3ff, #003d82);
+        }
+
+        .task-input-area {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .task-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .task-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            text-align: center;
+        }
+
+        .reward-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 215, 0, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            z-index: 1000;
+            display: none;
+            animation: reward-popup 2s ease-in-out;
+        }
+
+        @keyframes reward-popup {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .companion {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: none;
+            animation: companion-bounce 2s ease-in-out infinite;
+            z-index: 100;
+        }
+
+        @keyframes companion-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Tehtäväräjäytin</h1>
+            <p>Räjäytä tehtäväsi ja raivaa tietä eteenpäin!</p>
+        </div>
+
+        <div class="guide" id="guide">
+            <p id="guide-text">Tervetuloa! Luo ensimmäinen esteesi lisäämällä tehtäviä.</p>
+        </div>
+
+        <canvas id="gameCanvas" class="game-canvas"></canvas>
+
+        <div class="controls">
+            <button class="btn" onclick="showTaskInput()">➕ Lisää tehtäviä</button>
+            <button class="btn success" onclick="nextBarrier()">⏭️ Seuraava este</button>
+            <button class="btn" onclick="clearDay()">🔄 Tyhjennä päivä</button>
+        </div>
+
+        <div class="task-input-area" id="taskInputArea">
+            <h3 style="color: white; margin-bottom: 15px;">Lisää tehtäviä (1-5 kpl)</h3>
+            <input type="text" class="task-input" id="task1" placeholder="Tehtävä 1">
+            <input type="text" class="task-input" id="task2" placeholder="Tehtävä 2 (valinnainen)">
+            <input type="text" class="task-input" id="task3" placeholder="Tehtävä 3 (valinnainen)">
+            <input type="text" class="task-input" id="task4" placeholder="Tehtävä 4 (valinnainen)">
+            <input type="text" class="task-input" id="task5" placeholder="Tehtävä 5 (valinnainen)">
+            <button class="btn success" onclick="createBarrier()">🧱 Luo este</button>
+            <button class="btn" onclick="hideTaskInput()">❌ Peruuta</button>
+        </div>
+
+        <div class="stats">
+            <div>📊 Tänään purettu esteitä: <span id="barriersCleared">0</span>/3</div>
+            <div>💎 Kerättyjä palkintoja: <span id="rewardsCount">0</span></div>
+        </div>
+    </div>
+
+    <div class="reward-display" id="rewardDisplay"></div>
+    <div class="companion" id="companion">🦙</div>
+
+    <script>
+        // Game state
+        let gameState = {
+            currentBarrier: [],
+            barriersCleared: 0,
+            rewards: [],
+            totalRewards: 0,
+            particles: [],
+            companionUnlocked: false
+        };
+
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        // Particle system for explosions
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10 - 5;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.02 + 0.01;
+                this.size = Math.random() * 8 + 4;
+                this.type = type;
+                this.gravity = 0.2;
+                this.color = this.getColor();
+            }
+
+            getColor() {
+                const colors = {
+                    glitter: ['gold', 'silver', 'pink', 'cyan'],
+                    stars: ['yellow', 'white', 'lightblue'],
+                    frogs: ['green', 'lightgreen'],
+                    coins: ['gold', 'orange']
+                };
+                const colorArray = colors[this.type] || colors.glitter;
+                return colorArray[Math.floor(Math.random() * colorArray.length)];
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.life -= this.decay;
+                this.vx *= 0.99;
+                this.size *= 0.98;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                
+                if (this.type === 'stars') {
+                    this.drawStar();
+                } else if (this.type === 'frogs') {
+                    this.drawFrog();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            drawStar() {
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+                    const x = this.x + Math.cos(angle) * this.size;
+                    const y = this.y + Math.sin(angle) * this.size;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    
+                    const innerAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
+                    const innerX = this.x + Math.cos(innerAngle) * (this.size * 0.4);
+                    const innerY = this.y + Math.sin(innerAngle) * (this.size * 0.4);
+                    ctx.lineTo(innerX, innerY);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            drawFrog() {
+                ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size/2);
+                ctx.fillRect(this.x - this.size/3, this.y - this.size/2, this.size/6, this.size/4);
+                ctx.fillRect(this.x + this.size/6, this.y - this.size/2, this.size/6, this.size/4);
+            }
+        }
+
+        // Task brick class
+        class TaskBrick {
+            constructor(x, y, width, height, text) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.text = text;
+                this.completed = false;
+                this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+            }
+
+            draw() {
+                if (this.completed) return;
+                
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const maxWidth = this.width - 10;
+                let text = this.text;
+                if (ctx.measureText(text).width > maxWidth) {
+                    while (ctx.measureText(text + '...').width > maxWidth && text.length > 0) {
+                        text = text.slice(0, -1);
+                    }
+                    text += '...';
+                }
+                
+                ctx.fillText(text, this.x + this.width/2, this.y + this.height/2);
+            }
+
+            isClicked(x, y) {
+                return !this.completed && x >= this.x && x <= this.x + this.width && 
+                       y >= this.y && y <= this.y + this.height;
+            }
+
+            explode() {
+                if (this.completed) return;
+                
+                this.completed = true;
+                
+                // Haptic feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+                
+                // Play explosion sound
+                playExplosionSound();
+                
+                // Create particles
+                const particleTypes = ['glitter', 'stars', 'frogs', 'coins'];
+                const type = particleTypes[Math.floor(Math.random() * particleTypes.length)];
+                
+                for (let i = 0; i < 30; i++) {
+                    gameState.particles.push(new Particle(
+                        this.x + this.width/2 + (Math.random() - 0.5) * this.width,
+                        this.y + this.height/2 + (Math.random() - 0.5) * this.height,
+                        type
+                    ));
+                }
+                
+                // Random reward chance
+                if (Math.random() < 0.3) {
+                    showRandomReward();
+                }
+                
+                // Check if barrier is complete
+                setTimeout(() => {
+                    if (gameState.currentBarrier.every(brick => brick.completed)) {
+                        barrierComplete();
+                    }
+                }, 500);
+            }
+        }
+
+        // Audio context for sound effects
+        let audioContext;
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playExplosionSound() {
+            initAudio();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.3);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // Game functions
+        function showTaskInput() {
+            document.getElementById('taskInputArea').style.display = 'block';
+            clearTaskInputs();
+        }
+
+        function hideTaskInput() {
+            document.getElementById('taskInputArea').style.display = 'none';
+        }
+
+        function clearTaskInputs() {
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`task${i}`).value = '';
+            }
+        }
+
+        function createBarrier() {
+            if (gameState.barriersCleared >= 3) {
+                alert('Olet jo luonut maksimimäärän esteitä tälle päivälle! Hyvää työtä! 🎉');
+                return;
+            }
+
+            const tasks = [];
+            for (let i = 1; i <= 5; i++) {
+                const taskText = document.getElementById(`task${i}`).value.trim();
+                if (taskText) {
+                    tasks.push(taskText);
+                }
+            }
+
+            if (tasks.length === 0) {
+                alert('Lisää vähintään yksi tehtävä!');
+                return;
+            }
+
+            gameState.currentBarrier = [];
+            const brickWidth = Math.min(140, (canvas.width - 40) / tasks.length - 10);
+            const brickHeight = 60;
+            const startX = (canvas.width - (tasks.length * (brickWidth + 10) - 10)) / 2;
+            const y = canvas.height / 2 - brickHeight / 2;
+
+            tasks.forEach((task, index) => {
+                const x = startX + index * (brickWidth + 10);
+                gameState.currentBarrier.push(new TaskBrick(x, y, brickWidth, brickHeight, task));
+            });
+
+            hideTaskInput();
+            updateGuide('Napsauta tiiliä kun tehtävä on tehty - ne räjähtävät kauniisti! ✨');
+            saveGameState();
+        }
+
+        function nextBarrier() {
+            if (gameState.currentBarrier.length === 0) {
+                showTaskInput();
+            } else if (gameState.currentBarrier.every(brick => brick.completed)) {
+                showTaskInput();
+            } else {
+                const incompleteTasks = gameState.currentBarrier.filter(brick => !brick.completed);
+                const moveToNext = confirm(`Sinulla on ${incompleteTasks.length} keskeneräistä tehtävää. Siirrä ne seuraavaan esteeseen?`);
+                if (moveToNext) {
+                    // Move incomplete tasks to next barrier
+                    showTaskInput();
+                    // Pre-fill with incomplete tasks
+                    incompleteTasks.forEach((brick, index) => {
+                        if (index < 5) {
+                            document.getElementById(`task${index + 1}`).value = brick.text;
+                        }
+                    });
+                }
+            }
+        }
+
+        function barrierComplete() {
+            gameState.barriersCleared++;
+            updateGuide('Loistavaa! Este purettu! 🎉 Voit jatkaa seuraavaan esteeseen tai ottaa tauon.');
+            
+            // Unlock companion after first barrier
+            if (gameState.barriersCleared === 1 && !gameState.companionUnlocked) {
+                gameState.companionUnlocked = true;
+                document.getElementById('companion').style.display = 'block';
+                setTimeout(() => {
+                    alert('Sait seuralaisen matkallesi! 🦙');
+                }, 1000);
+            }
+            
+            updateStats();
+            saveGameState();
+        }
+
+        function showRandomReward() {
+            const rewards = ['🥔 Peruna!', '🛁 Kylpyankka!', '👑 Tiara!', '🎂 Kakku!', '🌟 Tähti!', '💎 Jalokivi!', '🎈 Ilmapallo!', '🎭 Naamio!'];
+            const reward = rewards[Math.floor(Math.random() * rewards.length)];
+            
+            gameState.rewards.push(reward);
+            gameState.totalRewards++;
+            
+            const rewardDisplay = document.getElementById('rewardDisplay');
+            rewardDisplay.textContent = `Löysit: ${reward}`;
+            rewardDisplay.style.display = 'block';
+            
+            setTimeout(() => {
+                rewardDisplay.style.display = 'none';
+            }, 2000);
+            
+            updateStats();
+        }
+
+        function updateGuide(text) {
+            document.getElementById('guide-text').textContent = text;
+        }
+
+        function updateStats() {
+            document.getElementById('barriersCleared').textContent = gameState.barriersCleared;
+            document.getElementById('rewardsCount').textContent = gameState.totalRewards;
+        }
+
+        function clearDay() {
+            if (confirm('Haluatko varmasti aloittaa puhtaalta pöydältä?')) {
+                gameState = {
+                    currentBarrier: [],
+                    barriersCleared: 0,
+                    rewards: [],
+                    totalRewards: 0,
+                    particles: [],
+                    companionUnlocked: false
+                };
+                document.getElementById('companion').style.display = 'none';
+                updateGuide('Uusi päivä, uudet mahdollisuudet! Luo ensimmäinen esteesi.');
+                updateStats();
+                saveGameState();
+            }
+        }
+
+        // Canvas event handling
+        canvas.addEventListener('click', (e) => {
+            initAudio(); // Initialize audio on first interaction
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            gameState.currentBarrier.forEach(brick => {
+                if (brick.isClicked(x, y)) {
+                    brick.explode();
+                }
+            });
+        });
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            initAudio();
+            
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            gameState.currentBarrier.forEach(brick => {
+                if (brick.isClicked(x, y)) {
+                    brick.explode();
+                }
+            });
+        });
+
+        // Game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw path
+            ctx.fillStyle = 'rgba(139, 69, 19, 0.6)';
+            ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+            
+            // Draw current barrier
+            gameState.currentBarrier.forEach(brick => brick.draw());
+            
+            // Update and draw particles
+            gameState.particles = gameState.particles.filter(particle => {
+                particle.update();
+                particle.draw();
+                return particle.life > 0 && particle.size > 0.5;
+            });
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Local storage
+        function saveGameState() {
+            localStorage.setItem('taskExploderGame', JSON.stringify({
+                barriersCleared: gameState.barriersCleared,
+                totalRewards: gameState.totalRewards,
+                companionUnlocked: gameState.companionUnlocked,
+                rewards: gameState.rewards
+            }));
+        }
+
+        function loadGameState() {
+            const saved = localStorage.getItem('taskExploderGame');
+            if (saved) {
+                const data = JSON.parse(saved);
+                gameState.barriersCleared = data.barriersCleared || 0;
+                gameState.totalRewards = data.totalRewards || 0;
+                gameState.companionUnlocked = data.companionUnlocked || false;
+                gameState.rewards = data.rewards || [];
+                
+                if (gameState.companionUnlocked) {
+                    document.getElementById('companion').style.display = 'block';
+                }
+                
+                updateStats();
+            }
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        });
+
+        // Motivational messages
+        setInterval(() => {
+            const messages = [
+                'Muista juoda vettä! 💧',
+                'Voit jatkaa huomenna, jos tänään ei riitä energia! 😊',
+                'Jokainen pieni askel on edistymistä! 👣',
+                'Et ole yksin tässä matkassa! 🤗'
+            ];
+            
+            if (Math.random() < 0.1) { // 10% chance every interval
+                updateGuide(messages[Math.floor(Math.random() * messages.length)]);
+                setTimeout(() => {
+                    if (gameState.currentBarrier.length === 0) {
+                        updateGuide('Tervetuloa takaisin! Luo uusi este aloittaaksesi.');
+                    } else if (gameState.currentBarrier.every(brick => brick.completed)) {
+                        updateGuide('Loistavaa! Voit jatkaa seuraavaan esteeseen tai ottaa tauon.');
+                    } else {
+                        updateGuide('Napsauta tiiliä kun tehtävä on tehty - ne räjähtävät kauniisti! ✨');
+                    }
+                }, 3000);
+            }
+        }, 10000);
+
+        // Initialize game
+        loadGameState();
+        gameLoop();
+        
+        // Welcome message
+        setTimeout(() => {
+            updateGuide('Tervetuloa! 🎮 Tämä on sinun henkilökohtainen tehtäväräjäyttimesi. Aloita lisäämällä tehtäviä!');
+        }, 1000);
+    </script>
+</body>
+</html>
