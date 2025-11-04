@@ -324,8 +324,10 @@
             }
 
             updateText(newText) {
+                console.log(`Updating brick text from "${this.text}" to "${newText}"`);
                 this.text = newText;
                 saveGameState();
+                console.log(`Brick text updated successfully`);
             }
 
             draw() {
@@ -565,6 +567,7 @@
 
         function saveTaskEdit() {
             const newText = document.getElementById('editTaskInput').value.trim();
+            console.log(`Attempting to save task edit. New text: "${newText}"`);
             
             if (!newText) {
                 alert('Tehtävän nimi ei voi olla tyhjä!');
@@ -572,8 +575,12 @@
             }
             
             if (contextMenuState.selectedBrick) {
+                console.log(`Selected brick found. Current text: "${contextMenuState.selectedBrick.text}"`);
                 contextMenuState.selectedBrick.updateText(newText);
                 updateGuide(`Tehtävä päivitetty: "${newText}" ✏️`);
+                console.log(`Task edit completed successfully`);
+            } else {
+                console.log(`No selected brick found!`);
             }
             
             cancelTaskEdit();
