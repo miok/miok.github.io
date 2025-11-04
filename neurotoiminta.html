@@ -251,7 +251,7 @@
         <div class="stats">
             <div>📊 Tänään purettu esteitä: <span id="barriersCleared">0</span>/3</div>
             <div>💎 Kerättyjä palkintoja: <span id="rewardsCount">0</span></div>
-            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.0</div>
+            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.2</div>
         </div>
     </div>
 
@@ -276,7 +276,7 @@
 
     <script>
         // Game version for localStorage compatibility
-        const GAME_VERSION = "1.1.1";
+        const GAME_VERSION = "1.1.2";
 
         // Game state
         let gameState = {
@@ -324,10 +324,20 @@
             }
 
             updateText(newText) {
-                console.log(`Updating brick text from "${this.text}" to "${newText}"`);
+                console.log(`=== UPDATING BRICK TEXT ===`);
+                console.log(`Brick ID: ${this.id}`);
+                console.log(`Old text: "${this.text}"`);
+                console.log(`New text: "${newText}"`);
+                
                 this.text = newText;
+                
+                console.log(`Text after update: "${this.text}"`);
+                console.log(`Brick object:`, this);
+                
+                // Force a canvas redraw to make sure the change is visible
+                console.log(`=== UPDATE COMPLETE ===`);
+                
                 saveGameState();
-                console.log(`Brick text updated successfully`);
             }
 
             draw() {
@@ -355,6 +365,11 @@
                 }
                 
                 ctx.fillText(text, this.x + this.width/2, this.y + this.height/2);
+                
+                // Debug: log what text is being drawn (only occasionally to avoid spam)
+                if (Math.random() < 0.001) {
+                    console.log(`Drawing brick with text: "${this.text}" (id: ${this.id})`);
+                }
             }
 
             isClicked(x, y) {
@@ -476,6 +491,12 @@
 
         // Context menu functions
         function showContextMenu(x, y, brick) {
+            console.log(`=== SHOWING CONTEXT MENU ===`);
+            console.log(`Selected brick:`);
+            console.log(`- ID: ${brick.id}`);
+            console.log(`- Text: "${brick.text}"`);
+            console.log(`- Position: (${brick.x}, ${brick.y})`);
+            
             contextMenuState.selectedBrick = brick;
             contextMenuState.visible = true;
             
@@ -493,16 +514,23 @@
                     menu.style.top = (y - rect.height) + 'px';
                 }
             }, 10);
+            
+            console.log(`Context menu shown at (${x}, ${y})`);
         }
 
         function hideContextMenu() {
+            console.log(`Hiding context menu. Selected brick before: ${contextMenuState.selectedBrick ? 'exists' : 'null'}`);
             contextMenuState.visible = false;
-            contextMenuState.selectedBrick = null;
             document.getElementById('contextMenu').style.display = 'none';
+            // DON'T clear selectedBrick here - keep it for potential edit dialog
+            console.log(`Context menu hidden. Selected brick after: ${contextMenuState.selectedBrick ? 'still exists' : 'null'}`);
         }
 
         function editTask() {
             if (!contextMenuState.selectedBrick) return;
+            
+            console.log(`=== OPENING EDIT DIALOG ===`);
+            console.log(`Selected brick: ID=${contextMenuState.selectedBrick.id}, text="${contextMenuState.selectedBrick.text}"`);
             
             const dialog = document.getElementById('editDialog');
             const input = document.getElementById('editTaskInput');
@@ -512,7 +540,8 @@
             input.focus();
             input.select();
             
-            hideContextMenu();
+            hideContextMenu(); // Hide menu but keep selectedBrick
+            console.log(`Edit dialog opened. Selected brick still: ${contextMenuState.selectedBrick ? 'exists' : 'null'}`);
         }
 
         function completeTask() {
@@ -567,7 +596,8 @@
 
         function saveTaskEdit() {
             const newText = document.getElementById('editTaskInput').value.trim();
-            console.log(`Attempting to save task edit. New text: "${newText}"`);
+            console.log(`=== SAVE TASK EDIT ===`);
+            console.log(`New text from input: "${newText}"`);
             
             if (!newText) {
                 alert('Tehtävän nimi ei voi olla tyhjä!');
@@ -575,21 +605,43 @@
             }
             
             if (contextMenuState.selectedBrick) {
-                console.log(`Selected brick found. Current text: "${contextMenuState.selectedBrick.text}"`);
-                contextMenuState.selectedBrick.updateText(newText);
+                console.log(`Selected brick found:`);
+                console.log(`- ID: ${contextMenuState.selectedBrick.id}`);
+                console.log(`- Current text: "${contextMenuState.selectedBrick.text}"`);
+                console.log(`- Position: (${contextMenuState.selectedBrick.x}, ${contextMenuState.selectedBrick.y})`);
+                
+                // Check if this brick is still in the current barrier
+                const brickInBarrier = gameState.currentBarrier.find(brick => brick.id === contextMenuState.selectedBrick.id);
+                if (brickInBarrier) {
+                    console.log(`Brick found in current barrier. Updating...`);
+                    brickInBarrier.updateText(newText);
+                    
+                    // Also update the selected brick reference
+                    contextMenuState.selectedBrick = brickInBarrier;
+                } else {
+                    console.log(`WARNING: Selected brick not found in current barrier!`);
+                    console.log(`Current barrier has ${gameState.currentBarrier.length} bricks`);
+                    gameState.currentBarrier.forEach((brick, index) => {
+                        console.log(`Barrier brick ${index}: ID=${brick.id}, text="${brick.text}"`);
+                    });
+                }
+                
                 updateGuide(`Tehtävä päivitetty: "${newText}" ✏️`);
-                console.log(`Task edit completed successfully`);
+                console.log(`=== EDIT SAVE COMPLETE ===`);
             } else {
-                console.log(`No selected brick found!`);
+                console.log(`ERROR: No selected brick found!`);
             }
             
             cancelTaskEdit();
+            contextMenuState.selectedBrick = null;
         }
 
         function cancelTaskEdit() {
+            console.log('Canceling task edit dialog');
             document.getElementById('editDialog').style.display = 'none';
             document.getElementById('editTaskInput').value = '';
-            contextMenuState.selectedBrick = null;
+            // Don't clear selectedBrick here - let other functions handle it
+            console.log('Task edit dialog canceled');
         }
 
         // Audio
@@ -969,11 +1021,25 @@
 
             document.addEventListener('click', (e) => {
                 const contextMenu = document.getElementById('contextMenu');
+                const editDialog = document.getElementById('editDialog');
                 
                 if (contextMenuState.visible && 
                     !contextMenu.contains(e.target) && 
                     e.target !== canvas) {
+                    console.log('Clicking outside context menu - hiding and clearing selection');
                     hideContextMenu();
+                    contextMenuState.selectedBrick = null; // Clear when clicking away
+                }
+                
+                // Don't clear selectedBrick if edit dialog is open
+                if (editDialog.style.display !== 'block' && 
+                    !contextMenuState.visible &&
+                    e.target !== canvas) {
+                    // Clear selection when clicking elsewhere and no dialogs are open
+                    if (contextMenuState.selectedBrick) {
+                        console.log('Clearing selectedBrick - clicked elsewhere');
+                        contextMenuState.selectedBrick = null;
+                    }
                 }
             });
 
@@ -981,6 +1047,8 @@
                 if (e.key === 'Escape') {
                     if (document.getElementById('editDialog').style.display === 'block') {
                         cancelTaskEdit();
+                        contextMenuState.selectedBrick = null; // Clear selection on escape
+                        console.log('Edit dialog closed with Escape - selected brick cleared');
                     }
                     if (contextMenuState.visible) {
                         hideContextMenu();
