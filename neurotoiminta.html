@@ -153,6 +153,69 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
+
+        .context-menu {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 10px;
+            padding: 10px;
+            display: none;
+            z-index: 1001;
+            min-width: 200px;
+        }
+
+        .context-menu-item {
+            color: white;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .context-menu-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .edit-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            display: none;
+            z-index: 1002;
+            min-width: 300px;
+        }
+
+        .edit-dialog h3 {
+            color: white;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .edit-dialog input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .edit-dialog .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -188,13 +251,33 @@
         <div class="stats">
             <div>📊 Tänään purettu esteitä: <span id="barriersCleared">0</span>/3</div>
             <div>💎 Kerättyjä palkintoja: <span id="rewardsCount">0</span></div>
+            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.0</div>
         </div>
     </div>
 
     <div class="reward-display" id="rewardDisplay"></div>
     <div class="companion" id="companion">🦙</div>
 
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="editTask()">✏️ Muokkaa tehtävää</div>
+        <div class="context-menu-item" onclick="completeTask()">✅ Merkitse tehdyksi</div>
+        <div class="context-menu-item" onclick="moveToNext()">⏭️ Siirrä seuraavaan</div>
+        <div class="context-menu-item" onclick="deleteTask()">🗑️ Poista tehtävä</div>
+    </div>
+
+    <div class="edit-dialog" id="editDialog">
+        <h3>Muokkaa tehtävää</h3>
+        <input type="text" id="editTaskInput" placeholder="Uusi tehtävän nimi...">
+        <div class="btn-group">
+            <button class="btn success" onclick="saveTaskEdit()">💾 Tallenna</button>
+            <button class="btn" onclick="cancelTaskEdit()">❌ Peruuta</button>
+        </div>
+    </div>
+
     <script>
+        // Game version for localStorage compatibility
+        const GAME_VERSION = "1.1.1";
+
         // Game state
         let gameState = {
             currentBarrier: [],
@@ -205,13 +288,114 @@
             companionUnlocked: false
         };
 
+        // Context menu state
+        let contextMenuState = {
+            visible: false,
+            selectedBrick: null,
+            pendingTasks: []
+        };
+
         // Canvas setup
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+        
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
+        }
+        
+        resizeCanvas();
 
-        // Particle system for explosions
+        // Task brick class
+        class TaskBrick {
+            constructor(x, y, width, height, text) {
+                this.id = Date.now() + Math.random();
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.text = text;
+                this.originalText = text;
+                this.completed = false;
+                this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+                console.log(`Created brick: ${text} at (${x}, ${y})`);
+            }
+
+            updateText(newText) {
+                this.text = newText;
+                saveGameState();
+            }
+
+            draw() {
+                if (this.completed) return;
+                
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const maxWidth = this.width - 10;
+                let text = this.text;
+                if (ctx.measureText(text).width > maxWidth) {
+                    while (ctx.measureText(text + '...').width > maxWidth && text.length > 0) {
+                        text = text.slice(0, -1);
+                    }
+                    text += '...';
+                }
+                
+                ctx.fillText(text, this.x + this.width/2, this.y + this.height/2);
+            }
+
+            isClicked(x, y) {
+                return !this.completed && x >= this.x && x <= this.x + this.width && 
+                       y >= this.y && y <= this.y + this.height;
+            }
+
+            explode() {
+                if (this.completed) return;
+                
+                console.log(`Exploding brick: ${this.text}`);
+                this.completed = true;
+                
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+                
+                playExplosionSound();
+                
+                const particleTypes = ['glitter', 'stars', 'frogs', 'coins'];
+                const type = particleTypes[Math.floor(Math.random() * particleTypes.length)];
+                
+                for (let i = 0; i < 30; i++) {
+                    gameState.particles.push(new Particle(
+                        this.x + this.width/2 + (Math.random() - 0.5) * this.width,
+                        this.y + this.height/2 + (Math.random() - 0.5) * this.height,
+                        type
+                    ));
+                }
+                
+                if (Math.random() < 0.3) {
+                    showRandomReward();
+                }
+                
+                setTimeout(() => {
+                    if (gameState.currentBarrier.every(brick => brick.completed)) {
+                        barrierComplete();
+                    }
+                }, 500);
+            }
+        }
+
+        // Particle system
         class Particle {
             constructor(x, y, type) {
                 this.x = x;
@@ -288,90 +472,120 @@
             }
         }
 
-        // Task brick class
-        class TaskBrick {
-            constructor(x, y, width, height, text) {
-                this.x = x;
-                this.y = y;
-                this.width = width;
-                this.height = height;
-                this.text = text;
-                this.completed = false;
-                this.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
-            }
-
-            draw() {
-                if (this.completed) return;
-                
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-                
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(this.x, this.y, this.width, this.height);
-                
-                ctx.fillStyle = '#fff';
-                ctx.font = '14px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                const maxWidth = this.width - 10;
-                let text = this.text;
-                if (ctx.measureText(text).width > maxWidth) {
-                    while (ctx.measureText(text + '...').width > maxWidth && text.length > 0) {
-                        text = text.slice(0, -1);
-                    }
-                    text += '...';
+        // Context menu functions
+        function showContextMenu(x, y, brick) {
+            contextMenuState.selectedBrick = brick;
+            contextMenuState.visible = true;
+            
+            const menu = document.getElementById('contextMenu');
+            menu.style.display = 'block';
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            
+            setTimeout(() => {
+                const rect = menu.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    menu.style.left = (x - rect.width) + 'px';
                 }
-                
-                ctx.fillText(text, this.x + this.width/2, this.y + this.height/2);
-            }
-
-            isClicked(x, y) {
-                return !this.completed && x >= this.x && x <= this.x + this.width && 
-                       y >= this.y && y <= this.y + this.height;
-            }
-
-            explode() {
-                if (this.completed) return;
-                
-                this.completed = true;
-                
-                // Haptic feedback
-                if (navigator.vibrate) {
-                    navigator.vibrate(200);
+                if (rect.bottom > window.innerHeight) {
+                    menu.style.top = (y - rect.height) + 'px';
                 }
-                
-                // Play explosion sound
-                playExplosionSound();
-                
-                // Create particles
-                const particleTypes = ['glitter', 'stars', 'frogs', 'coins'];
-                const type = particleTypes[Math.floor(Math.random() * particleTypes.length)];
-                
-                for (let i = 0; i < 30; i++) {
-                    gameState.particles.push(new Particle(
-                        this.x + this.width/2 + (Math.random() - 0.5) * this.width,
-                        this.y + this.height/2 + (Math.random() - 0.5) * this.height,
-                        type
-                    ));
-                }
-                
-                // Random reward chance
-                if (Math.random() < 0.3) {
-                    showRandomReward();
-                }
-                
-                // Check if barrier is complete
-                setTimeout(() => {
-                    if (gameState.currentBarrier.every(brick => brick.completed)) {
-                        barrierComplete();
-                    }
-                }, 500);
-            }
+            }, 10);
         }
 
-        // Audio context for sound effects
+        function hideContextMenu() {
+            contextMenuState.visible = false;
+            contextMenuState.selectedBrick = null;
+            document.getElementById('contextMenu').style.display = 'none';
+        }
+
+        function editTask() {
+            if (!contextMenuState.selectedBrick) return;
+            
+            const dialog = document.getElementById('editDialog');
+            const input = document.getElementById('editTaskInput');
+            
+            input.value = contextMenuState.selectedBrick.text;
+            dialog.style.display = 'block';
+            input.focus();
+            input.select();
+            
+            hideContextMenu();
+        }
+
+        function completeTask() {
+            if (!contextMenuState.selectedBrick) return;
+            contextMenuState.selectedBrick.explode();
+            hideContextMenu();
+        }
+
+        function moveToNext() {
+            if (!contextMenuState.selectedBrick) return;
+            
+            contextMenuState.pendingTasks.push(contextMenuState.selectedBrick.text);
+            
+            gameState.currentBarrier = gameState.currentBarrier.filter(
+                brick => brick.id !== contextMenuState.selectedBrick.id
+            );
+            
+            updateGuide(`Tehtävä "${contextMenuState.selectedBrick.text}" siirretty seuraavaan esteeseen! 📦`);
+            hideContextMenu();
+            
+            if (gameState.currentBarrier.length === 0 || gameState.currentBarrier.every(brick => brick.completed)) {
+                setTimeout(() => {
+                    barrierComplete();
+                }, 500);
+            }
+            
+            saveGameState();
+        }
+
+        function deleteTask() {
+            if (!contextMenuState.selectedBrick) return;
+            
+            const taskName = contextMenuState.selectedBrick.text;
+            if (confirm(`Haluatko varmasti poistaa tehtävän "${taskName}"?`)) {
+                gameState.currentBarrier = gameState.currentBarrier.filter(
+                    brick => brick.id !== contextMenuState.selectedBrick.id
+                );
+                
+                updateGuide(`Tehtävä "${taskName}" poistettu! ✨`);
+                
+                if (gameState.currentBarrier.length === 0 || gameState.currentBarrier.every(brick => brick.completed)) {
+                    setTimeout(() => {
+                        barrierComplete();
+                    }, 500);
+                }
+                
+                saveGameState();
+            }
+            
+            hideContextMenu();
+        }
+
+        function saveTaskEdit() {
+            const newText = document.getElementById('editTaskInput').value.trim();
+            
+            if (!newText) {
+                alert('Tehtävän nimi ei voi olla tyhjä!');
+                return;
+            }
+            
+            if (contextMenuState.selectedBrick) {
+                contextMenuState.selectedBrick.updateText(newText);
+                updateGuide(`Tehtävä päivitetty: "${newText}" ✏️`);
+            }
+            
+            cancelTaskEdit();
+        }
+
+        function cancelTaskEdit() {
+            document.getElementById('editDialog').style.display = 'none';
+            document.getElementById('editTaskInput').value = '';
+            contextMenuState.selectedBrick = null;
+        }
+
+        // Audio
         let audioContext;
         function initAudio() {
             if (!audioContext) {
@@ -401,6 +615,16 @@
         function showTaskInput() {
             document.getElementById('taskInputArea').style.display = 'block';
             clearTaskInputs();
+            
+            contextMenuState.pendingTasks.forEach((task, index) => {
+                if (index < 5) {
+                    document.getElementById(`task${index + 1}`).value = task;
+                }
+            });
+            
+            if (contextMenuState.pendingTasks.length > 0) {
+                updateGuide(`Löytyy ${contextMenuState.pendingTasks.length} siirrettyä tehtävää. Lisää halutessasi uusia! 📝`);
+            }
         }
 
         function hideTaskInput() {
@@ -432,6 +656,8 @@
                 return;
             }
 
+            console.log(`Creating barrier with ${tasks.length} tasks:`, tasks);
+
             gameState.currentBarrier = [];
             const brickWidth = Math.min(140, (canvas.width - 40) / tasks.length - 10);
             const brickHeight = 60;
@@ -443,9 +669,13 @@
                 gameState.currentBarrier.push(new TaskBrick(x, y, brickWidth, brickHeight, task));
             });
 
+            contextMenuState.pendingTasks = [];
+
             hideTaskInput();
-            updateGuide('Napsauta tiiliä kun tehtävä on tehty - ne räjähtävät kauniisti! ✨');
+            updateGuide('Napsauta tiiliä kun tehtävä on tehty - ne räjähtävät kauniisti! ✨ Pidä pohjassa muokataksesi!');
             saveGameState();
+
+            console.log(`Barrier created with ${gameState.currentBarrier.length} bricks`);
         }
 
         function nextBarrier() {
@@ -457,14 +687,12 @@
                 const incompleteTasks = gameState.currentBarrier.filter(brick => !brick.completed);
                 const moveToNext = confirm(`Sinulla on ${incompleteTasks.length} keskeneräistä tehtävää. Siirrä ne seuraavaan esteeseen?`);
                 if (moveToNext) {
-                    // Move incomplete tasks to next barrier
-                    showTaskInput();
-                    // Pre-fill with incomplete tasks
-                    incompleteTasks.forEach((brick, index) => {
-                        if (index < 5) {
-                            document.getElementById(`task${index + 1}`).value = brick.text;
-                        }
+                    incompleteTasks.forEach(brick => {
+                        contextMenuState.pendingTasks.push(brick.text);
                     });
+                    
+                    gameState.currentBarrier = [];
+                    showTaskInput();
                 }
             }
         }
@@ -473,7 +701,6 @@
             gameState.barriersCleared++;
             updateGuide('Loistavaa! Este purettu! 🎉 Voit jatkaa seuraavaan esteeseen tai ottaa tauon.');
             
-            // Unlock companion after first barrier
             if (gameState.barriersCleared === 1 && !gameState.companionUnlocked) {
                 gameState.companionUnlocked = true;
                 document.getElementById('companion').style.display = 'block';
@@ -523,58 +750,258 @@
                     particles: [],
                     companionUnlocked: false
                 };
+                contextMenuState = {
+                    visible: false,
+                    selectedBrick: null,
+                    pendingTasks: []
+                };
                 document.getElementById('companion').style.display = 'none';
+                hideContextMenu();
                 updateGuide('Uusi päivä, uudet mahdollisuudet! Luo ensimmäinen esteesi.');
                 updateStats();
                 saveGameState();
             }
         }
 
-        // Canvas event handling
-        canvas.addEventListener('click', (e) => {
-            initAudio(); // Initialize audio on first interaction
+        // Storage with versioning
+        function saveGameState() {
+            const saveData = {
+                version: GAME_VERSION,
+                barriersCleared: gameState.barriersCleared,
+                totalRewards: gameState.totalRewards,
+                companionUnlocked: gameState.companionUnlocked,
+                rewards: gameState.rewards,
+                pendingTasks: contextMenuState.pendingTasks,
+                lastSaved: new Date().toISOString()
+            };
             
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            gameState.currentBarrier.forEach(brick => {
-                if (brick.isClicked(x, y)) {
-                    brick.explode();
-                }
-            });
-        });
+            localStorage.setItem('taskExploderGame', JSON.stringify(saveData));
+            console.log(`Game state saved (version ${GAME_VERSION})`);
+        }
 
-        // Touch events for mobile
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            initAudio();
+        function loadGameState() {
+            const saved = localStorage.getItem('taskExploderGame');
             
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    
+                    if (!data.version || data.version !== GAME_VERSION) {
+                        console.log(`Version mismatch: saved ${data.version || 'unknown'}, current ${GAME_VERSION}`);
+                        console.log('Starting fresh due to version update');
+                        
+                        localStorage.removeItem('taskExploderGame');
+                        initializeFreshGame();
+                        showVersionUpdateMessage(data.version);
+                        return;
+                    }
+                    
+                    gameState.barriersCleared = data.barriersCleared || 0;
+                    gameState.totalRewards = data.totalRewards || 0;
+                    gameState.companionUnlocked = data.companionUnlocked || false;
+                    gameState.rewards = data.rewards || [];
+                    contextMenuState.pendingTasks = data.pendingTasks || [];
+                    
+                    if (gameState.companionUnlocked) {
+                        document.getElementById('companion').style.display = 'block';
+                    }
+                    
+                    updateStats();
+                    console.log(`Game state loaded successfully (version ${GAME_VERSION})`);
+                    
+                } catch (error) {
+                    console.error('Error loading save data:', error);
+                    console.log('Starting fresh due to corrupted save');
+                    localStorage.removeItem('taskExploderGame');
+                    initializeFreshGame();
+                }
+            } else {
+                console.log('No save data found, starting fresh');
+                initializeFreshGame();
+            }
+        }
+
+        function initializeFreshGame() {
+            gameState = {
+                currentBarrier: [],
+                barriersCleared: 0,
+                rewards: [],
+                totalRewards: 0,
+                particles: [],
+                companionUnlocked: false
+            };
             
-            gameState.currentBarrier.forEach(brick => {
-                if (brick.isClicked(x, y)) {
-                    brick.explode();
+            contextMenuState = {
+                visible: false,
+                selectedBrick: null,
+                pendingTasks: []
+            };
+            
+            document.getElementById('companion').style.display = 'none';
+            updateStats();
+        }
+
+        function showVersionUpdateMessage(oldVersion) {
+            const versionMessage = oldVersion 
+                ? `🎉 Päivitys versioon ${GAME_VERSION}!\n\nVanha versio: ${oldVersion}\n\nAloitamme puhtaalta pöydältä uusien ominaisuuksien vuoksi.`
+                : `🎉 Tervetuloa versioon ${GAME_VERSION}!\n\nAloitamme puhtaalta pöydältä.`;
+                
+            setTimeout(() => {
+                alert(versionMessage);
+            }, 2000);
+        }
+
+        // Event listeners
+        let longPressTimer = null;
+        let longPressDetected = false;
+
+        function initEventListeners() {
+            console.log('Setting up event listeners...');
+            
+            canvas.addEventListener('click', (e) => {
+                if (longPressDetected) {
+                    longPressDetected = false;
+                    return;
+                }
+                
+                initAudio();
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                let clickedBrick = null;
+                gameState.currentBarrier.forEach(brick => {
+                    if (brick.isClicked(x, y)) {
+                        clickedBrick = brick;
+                    }
+                });
+                
+                if (clickedBrick) {
+                    clickedBrick.explode();
                 }
             });
-        });
+
+            canvas.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                let clickedBrick = null;
+                gameState.currentBarrier.forEach(brick => {
+                    if (brick.isClicked(x, y) && !brick.completed) {
+                        clickedBrick = brick;
+                    }
+                });
+                
+                if (clickedBrick) {
+                    showContextMenu(e.clientX, e.clientY, clickedBrick);
+                } else {
+                    hideContextMenu();
+                }
+            });
+
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                initAudio();
+                
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                
+                let touchedBrick = null;
+                gameState.currentBarrier.forEach(brick => {
+                    if (brick.isClicked(x, y) && !brick.completed) {
+                        touchedBrick = brick;
+                    }
+                });
+                
+                if (touchedBrick) {
+                    longPressDetected = false;
+                    longPressTimer = setTimeout(() => {
+                        longPressDetected = true;
+                        navigator.vibrate && navigator.vibrate(50);
+                        showContextMenu(touch.clientX, touch.clientY, touchedBrick);
+                    }, 500);
+                }
+            });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                if (!longPressDetected && e.changedTouches.length === 1) {
+                    const rect = canvas.getBoundingClientRect();
+                    const touch = e.changedTouches[0];
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    
+                    gameState.currentBarrier.forEach(brick => {
+                        if (brick.isClicked(x, y)) {
+                            brick.explode();
+                        }
+                    });
+                }
+                
+                longPressDetected = false;
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                const contextMenu = document.getElementById('contextMenu');
+                
+                if (contextMenuState.visible && 
+                    !contextMenu.contains(e.target) && 
+                    e.target !== canvas) {
+                    hideContextMenu();
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (document.getElementById('editDialog').style.display === 'block') {
+                        cancelTaskEdit();
+                    }
+                    if (contextMenuState.visible) {
+                        hideContextMenu();
+                    }
+                }
+                if (e.key === 'Enter' && document.getElementById('editDialog').style.display === 'block') {
+                    saveTaskEdit();
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+            });
+            
+            console.log('Event listeners set up successfully');
+        }
 
         // Game loop
         function gameLoop() {
-            // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Draw path
             ctx.fillStyle = 'rgba(139, 69, 19, 0.6)';
             ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
             
-            // Draw current barrier
-            gameState.currentBarrier.forEach(brick => brick.draw());
+            gameState.currentBarrier.forEach(brick => {
+                brick.draw();
+            });
             
-            // Update and draw particles
             gameState.particles = gameState.particles.filter(particle => {
                 particle.update();
                 particle.draw();
@@ -584,67 +1011,47 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Local storage
-        function saveGameState() {
-            localStorage.setItem('taskExploderGame', JSON.stringify({
-                barriersCleared: gameState.barriersCleared,
-                totalRewards: gameState.totalRewards,
-                companionUnlocked: gameState.companionUnlocked,
-                rewards: gameState.rewards
-            }));
-        }
-
-        function loadGameState() {
-            const saved = localStorage.getItem('taskExploderGame');
-            if (saved) {
-                const data = JSON.parse(saved);
-                gameState.barriersCleared = data.barriersCleared || 0;
-                gameState.totalRewards = data.totalRewards || 0;
-                gameState.companionUnlocked = data.companionUnlocked || false;
-                gameState.rewards = data.rewards || [];
-                
-                if (gameState.companionUnlocked) {
-                    document.getElementById('companion').style.display = 'block';
-                }
-                
-                updateStats();
-            }
-        }
-
-        // Resize handler
-        window.addEventListener('resize', () => {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-        });
-
-        // Motivational messages
-        setInterval(() => {
-            const messages = [
-                'Muista juoda vettä! 💧',
-                'Voit jatkaa huomenna, jos tänään ei riitä energia! 😊',
-                'Jokainen pieni askel on edistymistä! 👣',
-                'Et ole yksin tässä matkassa! 🤗'
-            ];
-            
-            if (Math.random() < 0.1) { // 10% chance every interval
-                updateGuide(messages[Math.floor(Math.random() * messages.length)]);
-                setTimeout(() => {
-                    if (gameState.currentBarrier.length === 0) {
-                        updateGuide('Tervetuloa takaisin! Luo uusi este aloittaaksesi.');
-                    } else if (gameState.currentBarrier.every(brick => brick.completed)) {
-                        updateGuide('Loistavaa! Voit jatkaa seuraavaan esteeseen tai ottaa tauon.');
-                    } else {
-                        updateGuide('Napsauta tiiliä kun tehtävä on tehty - ne räjähtävät kauniisti! ✨');
+        // Developer tools
+        window.gameVersionTools = {
+            getCurrentVersion: () => GAME_VERSION,
+            getSavedVersion: () => {
+                const saved = localStorage.getItem('taskExploderGame');
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        return data.version || 'unknown';
+                    } catch (e) {
+                        return 'corrupted';
                     }
-                }, 3000);
+                }
+                return 'no save data';
+            },
+            forceVersionUpdate: (newVersion) => {
+                const oldData = localStorage.getItem('taskExploderGame');
+                if (oldData) {
+                    const data = JSON.parse(oldData);
+                    data.version = newVersion || '0.0.0';
+                    localStorage.setItem('taskExploderGame', JSON.stringify(data));
+                    console.log(`Forced version to ${data.version} for testing`);
+                    location.reload();
+                }
+            },
+            clearSaveData: () => {
+                localStorage.removeItem('taskExploderGame');
+                console.log('Save data cleared');
+                location.reload();
             }
-        }, 10000);
+        };
 
         // Initialize game
+        console.log('Initializing game...');
         loadGameState();
+        console.log('Game state loaded');
+        initEventListeners();
+        console.log('Event listeners initialized');
         gameLoop();
+        console.log('Game loop started');
         
-        // Welcome message
         setTimeout(() => {
             updateGuide('Tervetuloa! 🎮 Tämä on sinun henkilökohtainen tehtäväräjäyttimesi. Aloita lisäämällä tehtäviä!');
         }, 1000);
