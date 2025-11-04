@@ -259,7 +259,7 @@
         <div class="stats">
             <div>📊 Tänään purettu esteitä: <span id="barriersCleared">0</span>/3</div>
             <div>💎 Kerättyjä palkintoja: <span id="rewardsCount">0</span></div>
-            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.4</div>
+            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.5</div>
         </div>
     </div>
 
@@ -284,7 +284,7 @@
 
     <script>
         // Game version for localStorage compatibility
-        const GAME_VERSION = "1.1.4";
+        const GAME_VERSION = "1.1.5";
 
         // Game state
         let gameState = {
@@ -351,7 +351,13 @@
             draw() {
                 if (this.completed) return;
                 
-                ctx.fillStyle = this.color;
+                // Highlight brick during long press
+                let fillColor = this.color;
+                if (longPressBrick && longPressBrick.id === this.id) {
+                    fillColor = '#FFD700'; // Gold color during long press
+                }
+                
+                ctx.fillStyle = fillColor;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
                 
                 ctx.strokeStyle = '#fff';
@@ -921,7 +927,8 @@
         // Event listeners
         let longPressTimer = null;
         let longPressDetected = false;
-        let longPressCoords = { x: 0, y: 0 }; // Store coordinates for long press
+        let longPressCoords = { x: 0, y: 0 };
+        let longPressBrick = null; // Store the brick being long-pressed
 
         function initEventListeners() {
             console.log('Setting up event listeners...');
