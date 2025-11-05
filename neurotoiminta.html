@@ -267,7 +267,7 @@
         <div class="stats">
             <div>📊 Tänään purettu esteitä: <span id="barriersCleared">0</span>/3</div>
             <div>💎 Kerättyjä palkintoja: <span id="rewardsCount">0</span></div>
-            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.7</div>
+            <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">v1.1.9</div>
         </div>
     </div>
 
@@ -292,7 +292,7 @@
 
     <script>
         // Game version for localStorage compatibility
-        const GAME_VERSION = "1.1.7";
+        const GAME_VERSION = "1.1.9";
 
         // Game state
         let gameState = {
@@ -513,31 +513,48 @@
 
         // Context menu functions
         function showContextMenu(x, y, brick) {
-            console.log(`=== SHOWING CONTEXT MENU ===`);
-            console.log(`Selected brick:`);
-            console.log(`- ID: ${brick.id}`);
-            console.log(`- Text: "${brick.text}"`);
-            console.log(`- Position: (${brick.x}, ${brick.y})`);
+            console.log(`🔥 === SHOW CONTEXT MENU CALLED ===`);
+            console.log(`🔥 Coordinates: (${x}, ${y})`);
+            console.log(`🔥 Brick: "${brick.text}" (ID: ${brick.id})`);
+            console.log(`🔥 Window size: ${window.innerWidth}x${window.innerHeight}`);
             
             contextMenuState.selectedBrick = brick;
             contextMenuState.visible = true;
             
             const menu = document.getElementById('contextMenu');
+            console.log(`🔥 Context menu element:`, menu);
+            
+            if (!menu) {
+                console.log(`🔥 ❌ ERROR: Context menu element not found!`);
+                return;
+            }
+            
             menu.style.display = 'block';
             menu.style.left = x + 'px';
             menu.style.top = y + 'px';
+            menu.style.zIndex = '9999'; // Make sure it's on top
+            
+            console.log(`🔥 Menu positioned at: left=${menu.style.left}, top=${menu.style.top}`);
+            console.log(`🔥 Menu display: ${menu.style.display}`);
+            console.log(`🔥 Menu z-index: ${menu.style.zIndex}`);
             
             setTimeout(() => {
                 const rect = menu.getBoundingClientRect();
+                console.log(`🔥 Menu rect after positioning:`, rect);
+                
                 if (rect.right > window.innerWidth) {
-                    menu.style.left = (x - rect.width) + 'px';
+                    const newLeft = x - rect.width;
+                    menu.style.left = newLeft + 'px';
+                    console.log(`🔥 Adjusted left to ${newLeft}px to fit screen`);
                 }
                 if (rect.bottom > window.innerHeight) {
-                    menu.style.top = (y - rect.height) + 'px';
+                    const newTop = y - rect.height;
+                    menu.style.top = newTop + 'px';
+                    console.log(`🔥 Adjusted top to ${newTop}px to fit screen`);
                 }
+                
+                console.log(`🔥 ✅ Context menu should now be visible!`);
             }, 10);
-            
-            console.log(`Context menu shown at (${x}, ${y})`);
         }
 
         function hideContextMenu() {
@@ -936,7 +953,8 @@
         let longPressTimer = null;
         let longPressDetected = false;
         let longPressCoords = { x: 0, y: 0 };
-        let longPressBrick = null; // Store the brick being long-pressed
+        let longPressBrick = null;
+        let longPressCleanupTimer = null; // Backup timer to clear visual feedback
 
         function initEventListeners() {
             console.log('Setting up event listeners...');
