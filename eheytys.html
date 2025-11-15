@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Levyneheytystyökalu - Windows 95</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'MS Sans Serif', sans-serif;
+            font-size: 11px;
+            background: #c0c0c0;
+            overflow: hidden;
+        }
+
+        .window {
+            width: 600px;
+            height: 500px;
+            margin: 50px auto;
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #dfdfdf #808080 #808080 #dfdfdf;
+            position: relative;
+        }
+
+        .title-bar {
+            height: 18px;
+            background: linear-gradient(90deg, #000080, #000040);
+            color: white;
+            padding: 2px 4px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 2px;
+        }
+
+        .control-btn {
+            width: 16px;
+            height: 14px;
+            background: #c0c0c0;
+            border: 1px solid;
+            border-color: #dfdfdf #808080 #808080 #dfdfdf;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .content {
+            padding: 10px;
+            height: calc(100% - 38px);
+            overflow: hidden;
+        }
+
+        .drive-info {
+            background: white;
+            border: 2px inset #c0c0c0;
+            padding: 5px;
+            margin-bottom: 10px;
+            font-size: 10px;
+        }
+
+        .disk-map {
+            width: 100%;
+            height: 200px;
+            background: white;
+            border: 2px inset #c0c0c0;
+            padding: 5px;
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: repeat(40, 1fr);
+            grid-template-rows: repeat(20, 1fr);
+            gap: 1px;
+        }
+
+        .block {
+            background: #008000;
+            transition: all 0.3s ease;
+        }
+
+        .block.fragmented { background: #ff0000; }
+        .block.free { background: #c0c0c0; }
+        .block.moving { background: #ffff00; }
+        .block.bad { background: #800080; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .btn {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #dfdfdf #808080 #808080 #dfdfdf;
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .btn:active {
+            border-color: #808080 #dfdfdf #dfdfdf #808080;
+        }
+
+        .btn:disabled {
+            color: #808080;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: white;
+            border: 2px inset #c0c0c0;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #000080, #0000ff);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .status {
+            background: white;
+            border: 2px inset #c0c0c0;
+            padding: 5px;
+            margin-top: 10px;
+            height: 60px;
+            overflow-y: auto;
+            font-size: 10px;
+            font-family: monospace;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            font-size: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #000;
+        }
+
+        select {
+            background: white;
+            border: 2px inset #c0c0c0;
+            padding: 2px;
+            font-family: inherit;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="title-bar">
+            <span>Levyneheytystyökalu</span>
+            <div class="window-controls">
+                <div class="control-btn">_</div>
+                <div class="control-btn">□</div>
+                <div class="control-btn">×</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="drive-info">
+                <strong>Asema C:</strong> (SYSTEM)<br>
+                Kapasiteetti: 2,1 GB | Vapaa tila: 234 MB | Käytetty tila: 1,9 GB<br>
+                Pirstoutuneisuus: 67% | Tiedostoja: 12 847
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #008000;"></div>
+                    <span>Ehjä tiedosto</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff0000;"></div>
+                    <span>Pirstoutunut</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #c0c0c0;"></div>
+                    <span>Vapaa tila</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffff00;"></div>
+                    <span>Siirretään</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #800080;"></div>
+                    <span>Viallinen sektori</span>
+                </div>
+            </div>
+
+            <div class="disk-map" id="diskMap"></div>
+
+            <div class="controls">
+                <select id="defragType">
+                    <option value="fast">Nopea defragmentaatio</option>
+                    <option value="slow">Perusteellinen defragmentaatio</option>
+                </select>
+                <button class="btn" id="startBtn">Käynnistä</button>
+                <button class="btn" id="pauseBtn" disabled>Keskeytä</button>
+                <button class="btn" id="stopBtn" disabled>Lopeta</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="status" id="status">
+                Valmis aloittamaan levyneheytyksen...<br>
+                Valitse defragmentaation tyyppi ja paina Käynnistä.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class DefragTool {
+            constructor() {
+                this.diskMap = document.getElementById('diskMap');
+                this.progressFill = document.getElementById('progressFill');
+                this.status = document.getElementById('status');
+                this.startBtn = document.getElementById('startBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.defragType = document.getElementById('defragType');
+                
+                this.blocks = [];
+                this.isRunning = false;
+                this.isPaused = false;
+                this.progress = 0;
+                this.currentPhase = '';
+                
+                this.initDisk();
+                this.bindEvents();
+            }
+
+            initDisk() {
+                this.diskMap.innerHTML = '';
+                this.blocks = [];
+                
+                // Luo 800 lohkoa (40x20 ruudukko)
+                for (let i = 0; i < 800; i++) {
+                    const block = document.createElement('div');
+                    block.className = 'block';
+                    
+                    // Määritä lohkon tyyppi satunnaisesti
+                    const rand = Math.random();
+                    if (rand < 0.15) {
+                        block.classList.add('free');
+                    } else if (rand < 0.65) {
+                        block.classList.add('fragmented');
+                    } else if (rand < 0.98) {
+                        // Normaali tiedosto (vihreä)
+                    } else {
+                        block.classList.add('bad');
+                    }
+                    
+                    this.diskMap.appendChild(block);
+                    this.blocks.push(block);
+                }
+            }
+
+            bindEvents() {
+                this.startBtn.addEventListener('click', () => this.start());
+                this.pauseBtn.addEventListener('click', () => this.pause());
+                this.stopBtn.addEventListener('click', () => this.stop());
+            }
+
+            start() {
+                if (this.isPaused) {
+                    this.resume();
+                    return;
+                }
+                
+                this.isRunning = true;
+                this.progress = 0;
+                this.startBtn.disabled = true;
+                this.pauseBtn.disabled = false;
+                this.stopBtn.disabled = false;
+                this.defragType.disabled = true;
+                
+                const isFast = this.defragType.value === 'fast';
+                this.addStatus(`Aloitetaan ${isFast ? 'nopea' : 'perusteellinen'} defragmentaatio...`);
+                
+                this.runDefrag(isFast);
+            }
+
+            pause() {
+                this.isPaused = true;
+                this.startBtn.disabled = false;
+                this.startBtn.textContent = 'Jatka';
+                this.pauseBtn.disabled = true;
+                this.addStatus('Defragmentaatio keskeytetty.');
+            }
+
+            resume() {
+                this.isPaused = false;
+                this.startBtn.disabled = true;
+                this.startBtn.textContent = 'Käynnistä';
+                this.pauseBtn.disabled = false;
+                this.addStatus('Jatketaan defragmentaatiota...');
+            }
+
+            stop() {
+                this.isRunning = false;
+                this.isPaused = false;
+                this.resetButtons();
+                this.addStatus('Defragmentaatio lopetettu käyttäjän toimesta.');
+                this.initDisk();
+                this.updateProgress(0);
+            }
+
+            resetButtons() {
+                this.startBtn.disabled = false;
+                this.startBtn.textContent = 'Käynnistä';
+                this.pauseBtn.disabled = true;
+                this.stopBtn.disabled = true;
+                this.defragType.disabled = false;
+            }
+
+            async runDefrag(isFast) {
+                const phases = [
+                    { name: 'Analysoidaan levyä...', duration: isFast ? 1000 : 2000, progress: 10 },
+                    { name: 'Etsitään pirstoutuneita tiedostoja...', duration: isFast ? 1500 : 3000, progress: 25 },
+                    { name: 'Siirretään tiedostoja...', duration: isFast ? 3000 : 8000, progress: 70 },
+                    { name: 'Optimoidaan tiedostojärjestelmää...', duration: isFast ? 2000 : 4000, progress: 90 },
+                    { name: 'Viimeistellään...', duration: isFast ? 1000 : 2000, progress: 100 }
+                ];
+
+                for (let phase of phases) {
+                    if (!this.isRunning) break;
+                    
+                    this.currentPhase = phase.name;
+                    this.addStatus(phase.name);
+                    
+                    await this.animatePhase(phase);
+                    
+                    if (!this.isRunning) break;
+                }
+
+                if (this.isRunning) {
+                    this.complete();
+                }
+            }
+
+            async animatePhase(phase) {
+                const startTime = Date.now();
+                const duration = phase.duration;
+                const startProgress = this.progress;
+                const targetProgress = phase.progress;
+                
+                return new Promise(resolve => {
+                    const animate = () => {
+                        if (!this.isRunning || this.isPaused) {
+                            if (!this.isRunning) resolve();
+                            else setTimeout(animate, 100);
+                            return;
+                        }
+                        
+                        const elapsed = Date.now() - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        
+                        this.progress = startProgress + (targetProgress - startProgress) * progress;
+                        this.updateProgress(this.progress);
+                        
+                        // Animoi lohkoja defragmentaation aikana
+                        if (phase.name.includes('Siirretään')) {
+                            this.animateBlocks();
+                        }
+                        
+                        if (progress < 1) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            resolve();
+                        }
+                    };
+                    animate();
+                });
+            }
+
+            animateBlocks() {
+                // Animoi satunnaisia lohkoja
+                for (let i = 0; i < 5; i++) {
+                    const randomIndex = Math.floor(Math.random() * this.blocks.length);
+                    const block = this.blocks[randomIndex];
+                    
+                    if (block.classList.contains('fragmented')) {
+                        block.classList.remove('fragmented');
+                        block.classList.add('moving');
+                        
+                        setTimeout(() => {
+                            block.classList.remove('moving');
+                            // 70% todennäköisyys tulla ehjäksi, 30% pysyä pirstoutuneena
+                            if (Math.random() < 0.7) {
+                                // Ehjä tiedosto (vihreä)
+                            } else {
+                                block.classList.add('fragmented');
+                            }
+                        }, 300);
+                    }
+                }
+            }
+
+            complete() {
+                this.isRunning = false;
+                this.resetButtons();
+                this.updateProgress(100);
+                
+                // Muuta kaikki pirstoutuneet lohkot ehjiksi
+                this.blocks.forEach(block => {
+                    if (block.classList.contains('fragmented')) {
+                        block.classList.remove('fragmented');
+                    }
+                });
+                
+                this.addStatus('');
+                this.addStatus('Defragmentaatio valmis!');
+                this.addStatus('Levy on nyt optimoitu ja tiedostot ovat yhtenäisiä.');
+                this.addStatus(`Pirstoutuneisuus: 3% (aiemmin 67%)`);
+                this.addStatus('Suorituskyky on parantunut merkittävästi.');
+            }
+
+            updateProgress(percent) {
+                this.progressFill.style.width = percent + '%';
+            }
+
+            addStatus(message) {
+                const time = new Date().toLocaleTimeString('fi-FI');
+                this.status.innerHTML += `[${time}] ${message}<br>`;
+                this.status.scrollTop = this.status.scrollHeight;
+            }
+        }
+
+        // Käynnistä sovellus
+        window.addEventListener('DOMContentLoaded', () => {
+            new DefragTool();
+        });
+    </script>
+</body>
+</html>
