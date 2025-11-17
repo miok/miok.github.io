@@ -125,7 +125,7 @@
         /* Jouluteksti */
         .christmas-text {
             position: absolute;
-            top: 15%;
+            top: 8%;
             left: 50%;
             transform: translateX(-50%);
             color: white;
@@ -144,40 +144,52 @@
         /* Pikkujoulunimigeneraattori */
         .name-generator {
             position: absolute;
-            top: 25%;
+            top: 18%;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(20, 25, 45, 0.95);
-            padding: 20px 30px;
+            padding: 15px 20px;
             border-radius: 15px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             z-index: 6;
             text-align: center;
             backdrop-filter: blur(10px);
             border: 2px solid rgba(100, 150, 255, 0.3);
+            max-width: 90vw;
+            width: auto;
         }
 
         .name-generator h3 {
             color: #fff;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-family: 'Times New Roman', serif;
-            font-size: 1.3rem;
+            font-size: 1.2rem;
         }
 
         .name-generator p {
             color: #ccc;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
         }
 
         .name-input {
-            padding: 10px 15px;
-            font-size: 1rem;
+            padding: 8px 12px;
+            font-size: 0.9rem;
             border: 2px solid #4caf50;
             border-radius: 8px;
-            margin-right: 10px;
             outline: none;
             font-family: Arial, sans-serif;
+            flex: 1;
+            min-width: 150px;
         }
 
         .name-input:focus {
@@ -186,13 +198,13 @@
         }
 
         .generate-btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: linear-gradient(45deg, #d32f2f, #f44336);
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: bold;
             transition: all 0.3s ease;
         }
@@ -204,26 +216,30 @@
 
         .result {
             margin-top: 15px;
-            padding: 10px;
+            padding: 15px;
             background: rgba(76, 175, 80, 0.1);
             border-radius: 8px;
             color: #4caf50;
             font-weight: bold;
-            font-size: 1.1rem;
-            min-height: 20px;
+            font-size: 1rem;
+            min-height: 60px;
+            line-height: 1.4;
         }
 
         /* Jakopainikkeet */
         .share-buttons {
             position: absolute;
-            top: 50%;
+            top: 55%;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 15px;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
             z-index: 6;
             opacity: 0;
             transition: opacity 0.3s ease;
+            max-width: 90vw;
         }
 
         .share-buttons.show {
@@ -231,21 +247,22 @@
         }
 
         .share-btn {
-            padding: 12px 20px;
+            padding: 8px 12px;
             border: none;
-            border-radius: 25px;
+            border-radius: 20px;
             cursor: pointer;
             font-weight: bold;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 5px;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-size: 0.8rem;
         }
 
         .share-btn:hover {
-            transform: translateY(-3px);
+            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
 
@@ -268,6 +285,103 @@
             background: #6c757d;
             color: white;
         }
+
+        /* Mobiili-optimointi */
+        @media (max-width: 768px) {
+            .christmas-text {
+                font-size: 2rem;
+                top: 5%;
+            }
+
+            .name-generator {
+                top: 15%;
+                padding: 12px 15px;
+                max-width: 95vw;
+            }
+
+            .name-generator h3 {
+                font-size: 1rem;
+                margin-bottom: 8px;
+            }
+
+            .name-generator p {
+                font-size: 0.8rem;
+                margin-bottom: 8px;
+            }
+
+            .input-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .name-input {
+                font-size: 0.85rem;
+                padding: 6px 10px;
+                min-width: 200px;
+                width: 100%;
+            }
+
+            .generate-btn {
+                font-size: 0.85rem;
+                padding: 6px 12px;
+                width: 100%;
+            }
+
+            .result {
+                font-size: 0.9rem;
+                padding: 12px;
+                min-height: 80px;
+                margin-top: 12px;
+            }
+
+            .share-buttons {
+                top: 50%;
+                gap: 6px;
+                max-width: 95vw;
+            }
+
+            .share-btn {
+                font-size: 0.7rem;
+                padding: 6px 8px;
+                gap: 3px;
+            }
+
+            /* Kuusten pienennus mobiilissa */
+            .tree {
+                transform: scale(0.5) !important;
+            }
+
+            .tree:first-of-type {
+                left: 2% !important;
+            }
+
+            .tree:last-of-type {
+                right: 2% !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .christmas-text {
+                font-size: 1.5rem;
+                top: 3%;
+            }
+
+            .name-generator {
+                top: 12%;
+                padding: 10px 12px;
+            }
+
+            .share-buttons {
+                top: 45%;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .share-btn {
+                width: 200px;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -279,7 +393,7 @@
     <div class="name-generator">
         <h3>🎅 Testaa pikkujoulunimesi! 🎅</h3>
         <p>Hupaisa testi juhlien ratoksi!</p>
-        <div>
+        <div class="input-row">
             <input type="text" class="name-input" placeholder="Kirjoita nimesi tähän..." maxlength="20">
             <button class="generate-btn" onclick="generateChristmasName()">Testaa!</button>
         </div>
