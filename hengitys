@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Countdown Timer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f0f1a;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+  }
+  .container {
+    text-align: center;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 2rem;
+  }
+  #display {
+    font-size: clamp(4rem, 15vw, 10rem);
+    font-weight: 200;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+    color: #fff;
+    margin-bottom: 1.5rem;
+    transition: color 0.3s;
+  }
+  #display.warning { color: #ff4444; }
+  #display.done { animation: pulse 0.8s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.3; } }
+
+  /* Breathing */
+  .breathing-container {
+    margin-bottom: 2rem;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+  }
+  .breathing-container.active { opacity: 1; }
+
+  .breath-ring {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 2px solid rgba(108, 99, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .breath-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #6c63ff, #4a42cc);
+    transition: width ease, height ease, background ease, box-shadow ease;
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.3);
+  }
+  .breath-circle.inhale {
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, #7b73ff, #6c63ff);
+    box-shadow: 0 0 40px rgba(108, 99, 255, 0.6);
+  }
+  .breath-circle.hold {
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, #ff9800, #e68a00);
+    box-shadow: 0 0 40px rgba(255, 152, 0, 0.5);
+  }
+  .breath-circle.exhale {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(circle, #ff6584, #cc4f6a);
+    box-shadow: 0 0 20px rgba(255, 101, 132, 0.4);
+  }
+
+  #breathLabel {
+    margin-top: 1rem;
+    font-size: 1.2rem;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    height: 1.8rem;
+  }
+  #breathCount {
+    font-size: 0.85rem;
+    color: #555;
+    height: 1.2rem;
+  }
+
+  .inputs {
+    display: flex;
+    gap: 0.8rem;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .input-group { display: flex; flex-direction: column; align-items: center; }
+  .input-group label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #666;
+    margin-bottom: 0.3rem;
+  }
+  .input-group input {
+    width: 5rem;
+    padding: 0.6rem;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 300;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus { border-color: #6c63ff; }
+  .sep { font-size: 1.8rem; color: #444; margin-top: 1rem; }
+
+  .buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  button {
+    padding: 0.8rem 2.2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.2s;
+  }
+  button:active { transform: scale(0.95); }
+  button:disabled { opacity: 0.3; cursor: default; }
+  #startBtn { background: #6c63ff; color: #fff; }
+  #pauseBtn { background: #ff9800; color: #fff; }
+  #resetBtn { background: #333; color: #ccc; }
+
+  .progress-bar {
+    width: 100%;
+    max-width: 500px;
+    height: 4px;
+    background: #1a1a2e;
+    border-radius: 2px;
+    margin: 2rem auto 0;
+    overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6c63ff, #ff6584);
+    width: 100%;
+    border-radius: 2px;
+    transition: width 0.3s linear;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Countdown Timer</h1>
+  <div id="display">00:00:00</div>
+
+  <div class="breathing-container" id="breathBox">
+    <div class="breath-ring">
+      <div class="breath-circle" id="breathCircle"></div>
+    </div>
+    <div id="breathLabel"></div>
+    <div id="breathCount"></div>
+  </div>
+
+  <div class="inputs">
+    <div class="input-group">
+      <label>Tunnit</label>
+      <input type="number" id="hours" min="0" max="99" value="0">
+    </div>
+    <span class="sep">:</span>
+    <div class="input-group">
+      <label>Minuutit</label>
+      <input type="number" id="minutes" min="0" max="59" value="5">
+    </div>
+    <span class="sep">:</span>
+    <div class="input-group">
+      <label>Sekunnit</label>
+      <input type="number" id="seconds" min="0" max="59" value="0">
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="startBtn">Käynnistä</button>
+    <button id="pauseBtn" disabled>Tauko</button>
+    <button id="resetBtn">Nollaa</button>
+  </div>
+  <div class="progress-bar"><div class="fill" id="progress"></div></div>
+</div>
+
+<script>
+  const display = document.getElementById('display');
+  const progress = document.getElementById('progress');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const hInput = document.getElementById('hours');
+  const mInput = document.getElementById('minutes');
+  const sInput = document.getElementById('seconds');
+  const breathBox = document.getElementById('breathBox');
+  const breathCircle = document.getElementById('breathCircle');
+  const breathLabel = document.getElementById('breathLabel');
+  const breathCount = document.getElementById('breathCount');
+
+  let totalSeconds = 0;
+  let remaining = 0;
+  let interval = null;
+  let running = false;
+
+  // Breathing: 4s inhale, 4s hold, 6s exhale = 14s cycle
+  const phases = [
+    { name: 'Sisäänhengitys', cls: 'inhale', dur: 4 },
+    { name: 'Pidätä', cls: 'hold', dur: 4 },
+    { name: 'Uloshengitys', cls: 'exhale', dur: 6 }
+  ];
+  let breathElapsed = 0; // seconds into current cycle
+  let breathPhaseIndex = 0;
+  let breathPhaseTime = 0;
+  let breathCycles = 0;
+
+  function getPhaseAtTime() {
+    let t = breathElapsed % 14;
+    let acc = 0;
+    for (let i = 0; i < phases.length; i++) {
+      acc += phases[i].dur;
+      if (t < acc) {
+        return { index: i, elapsed: t - (acc - phases[i].dur) };
+      }
+    }
+    return { index: 0, elapsed: 0 };
+  }
+
+  function updateBreathing() {
+    if (!running) return;
+    const { index, elapsed } = getPhaseAtTime();
+    const phase = phases[index];
+    const secsLeft = phase.dur - elapsed;
+
+    breathCircle.className = 'breath-circle ' + phase.cls;
+    breathCircle.style.transitionDuration = (phase.cls === 'inhale' ? phase.dur : phase.cls === 'exhale' ? phase.dur : 0.3) + 's';
+    breathLabel.textContent = `${phase.name}  ${Math.ceil(secsLeft)}`;
+
+    breathCycles = Math.floor(breathElapsed / 14) + 1;
+    breathCount.textContent = `Sykli ${breathCycles}`;
+
+    breathElapsed++;
+  }
+
+  function resetBreathing() {
+    breathElapsed = 0;
+    breathCycles = 0;
+    breathCircle.className = 'breath-circle';
+    breathCircle.style.transitionDuration = '0.3s';
+    breathLabel.textContent = '';
+    breathCount.textContent = '';
+    breathBox.classList.remove('active');
+  }
+
+  function fmt(n) { return String(n).padStart(2, '0'); }
+
+  function updateDisplay() {
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = remaining % 60;
+    display.textContent = `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
+    progress.style.width = totalSeconds ? (remaining / totalSeconds * 100) + '%' : '0%';
+    display.classList.toggle('warning', remaining <= 10 && remaining > 0 && running);
+    display.classList.toggle('done', remaining === 0 && totalSeconds > 0 && !running);
+  }
+
+  function tick() {
+    if (remaining <= 0) {
+      clearInterval(interval);
+      interval = null;
+      running = false;
+      remaining = 0;
+      updateDisplay();
+      resetBreathing();
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      document.title = '⏰ Aika loppui!';
+      try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2LkZSQi4J5cW1vdX+Ij5OTj4qEfXZxbnF3gIiQk5KOiYN9dnJucXeAiJCTko6Jg312cm5xd4CIkJOSjomDfXZybnF3gIiQk5KOiYN9dnJucXeAiI+Tko6Jg312cm5xd4CIkJOSjomDfXZybnF3gIiPk5KOiYN9dnJucXd/iI+Tko6Jg312cm5xd3+Ij5OSjomDfXZybnF3f4iPk5KOiYN9dnJucXd/iI+Tko6Ig312cm5xd3+Ij5OSjomDfQ==').play(); } catch(e) {}
+      return;
+    }
+    remaining--;
+    updateDisplay();
+    updateBreathing();
+    document.title = display.textContent;
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (!running) {
+      if (!interval) {
+        totalSeconds = (parseInt(hInput.value)||0)*3600 + (parseInt(mInput.value)||0)*60 + (parseInt(sInput.value)||0);
+        remaining = totalSeconds;
+        if (totalSeconds === 0) return;
+        breathElapsed = 0;
+      }
+      display.classList.remove('done');
+      running = true;
+      breathBox.classList.add('active');
+      updateBreathing(); // show immediately
+      interval = setInterval(tick, 1000);
+      startBtn.disabled = true;
+      pauseBtn.disabled = false;
+      setInputsEnabled(false);
+    }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if (running) {
+      clearInterval(interval);
+      running = false;
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      startBtn.textContent = 'Jatka';
+      breathLabel.textContent = 'Tauko';
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    clearInterval(interval);
+    interval = null;
+    running = false;
+    totalSeconds = 0;
+    remaining = 0;
+    display.textContent = '00:00:00';
+    display.classList.remove('warning', 'done');
+    progress.style.width = '100%';
+    startBtn.disabled = false;
+    startBtn.textContent = 'Käynnistä';
+    pauseBtn.disabled = true;
+    setInputsEnabled(true);
+    resetBreathing();
+    document.title = 'Countdown Timer';
+  });
+
+  function setInputsEnabled(en) {
+    [hInput, mInput, sInput].forEach(i => i.disabled = !en);
+  }
+
+  updateDisplay();
+</script>
+</body>
+</html>
