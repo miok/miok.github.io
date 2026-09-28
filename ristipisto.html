@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ristipistotallennin & Suunnittelija</title>
+    <title>Ristipistojen Suunnittelija & Tallennin</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -31,7 +31,7 @@
             width: 100%;
             height: 140px;
             padding: 15px;
-            font-size: 16px;
+            font-size: 15px;
             font-family: monospace;
             border: 1px solid #b0c4c6;
             border-radius: 6px;
@@ -39,51 +39,74 @@
             background-color: #ffffff;
             resize: vertical;
         }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .stats {
+            font-size: 12pt;
+            color: #666;
+            font-weight: bold;
+        }
+        button {
+            background-color: #3b4d4f;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 14pt;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2c3a3b;
+        }
         .output-box {
             background: #ffffff;
             border: 1px solid #dcd7cd;
             border-radius: 6px;
-            padding: 25px;
+            padding: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.03);
             overflow-x: auto;
+            text-align: center;
         }
-        pre {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 15px;
-            line-height: 1.2;
-            letter-spacing: 2px;
-            margin: 0;
-            color: #1a2628;
-            white-space: pre;
-        }
-        .stats {
-            font-size: 13pt;
-            color: #666;
-            font-weight: bold;
+        canvas {
+            background-color: #ffffff;
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #b0c4c6;
         }
     </style>
 </head>
 <body>
 
     <h1>Ristipistojen Suunnittelija</h1>
-    <p>Kirjoita tai kopioi teksti kenttään. Voit käyttää sekä isoja että pieniä kirjaimia sekä vaihtaa riviä (Enter)[cite: 1]:</p>
+    <p>Suunnittele tekstit mallikuvan kirjaimilla. Ruudukossa on 10 ruudun välein tummemmat apuviivat laskemisen helpottamiseksi. Tallenna valmis kaavio PNG-kuvana!</p>
     
     <div class="container">
-        <textarea id="textInput">Jumala, anna minulle tyyneys hyväksyä sen, mitä en voi muuttaa,
-rohkeus muuttaa sen, minkä voin,
-ja viisaus erottaa nämä toisistaan.</textarea>
+        <textarea id="textInput">Jumala suokoon minulle
+tyyneyttä hyväksyä asiat,
+joita en voi muuttaa,
+rohkeutta muuttaa niitä asioita,
+joita voin,
+ja viisautta erottaa
+nämä toisistaan.</textarea>
         
-        <div class="stats" id="stats">Koko: 0 x 0 ruutua</div>
+        <div class="controls">
+            <div class="stats" id="stats">Kaavion koko: 0 × 0 ruutua</div>
+            <button id="downloadBtn">Tallenna PNG-kuvana</button>
+        </div>
 
         <div class="output-box">
-            <pre id="output"></pre>
+            <canvas id="canvas"></canvas>
         </div>
     </div>
 
     <script>
-        // FONTIT: Isot (7 korkeaa) ja pienet (5 korkeaa) mallikuvan mukaan
         const FONT_MAP = {
-            // Isot kirjaimet (7 korkeutta)
             'A': [" 111 ", "1   1", "1   1", "11111", "1   1", "1   1", "1   1"],
             'B': ["1111 ", "1   1", "1   1", "1111 ", "1   1", "1   1", "1111 "],
             'C': [" 111 ", "1   1", "1    ", "1    ", "1    ", "1   1", " 111 "],
@@ -114,14 +137,13 @@ ja viisaus erottaa nämä toisistaan.</textarea>
             'Ö': [" 1 1 ", " 111 ", "1   1", "1   1", "1   1", "1   1", " 111 "],
             'Å': ["  1  ", " 111 ", "1   1", "11111", "1   1", "1   1", "1   1"],
 
-            // Pienet kirjaimet (5 korkeutta, sijoittuvat alemmas/keskelle riviä)
             'a': ["     ", " 111 ", "    1", " 1111", " 1111"],
             'b': ["1    ", "1111 ", "1   1", "1   1", "1111 "],
             'c': ["     ", " 111 ", "1    ", "1    ", " 111 "],
             'd': ["    1", " 1111", "1   1", "1   1", " 1111"],
             'e': ["     ", " 111 ", "11111", "1    ", " 111 "],
             'f': ["  11 ", " 1   ", "1111 ", " 1   ", " 1   "],
-            'g': ["     ", " 1111", "1   1", " 1111", "    1", " 111 "], // (tehty yhteensopivaksi)
+            'g': ["     ", " 1111", "1   1", " 1111", "    1", " 111 "],
             'h': ["1    ", "1111 ", "1   1", "1   1", "1   1"],
             'i': ["  1  ", "     ", "  1  ", "  1  ", "  1  "],
             'j': ["   1 ", "     ", "   1 ", "   1 ", "   1 ", " 11  "],
@@ -145,38 +167,34 @@ ja viisaus erottaa nämä toisistaan.</textarea>
             'ö': [" 1 1 ", " 111 ", "1   1", "1   1", " 111 "],
             'å': ["  1  ", " 111 ", "    1", " 1111", " 1111"],
 
-            // Välimerkit ja erikoismerkit
             ',': ["     ", "     ", "     ", "  1  ", "  1  ", " 1   ", "     "],
             '.': ["     ", "     ", "     ", "     ", "     ", "  1  ", "     "],
             '!': ["  1  ", "  1  ", "  1  ", "  1  ", "  1  ", "     ", "  1  "],
             '?': [" 111 ", "1   1", "   1 ", "  1  ", "  1  ", "     ", "  1  "],
             '-': ["     ", "     ", "     ", "11111", "     ", "     ", "     "],
+            ':': ["     ", "  1  ", "  1  ", "     ", "  1  ", "  1  ", "     "],
+            ';': ["     ", "  1  ", "  1  ", "     ", "  1  ", "  1  ", " 1   "],
             ' ': ["     ", "     ", "     ", "     ", "     ", "     ", "     "]
         };
 
         const inputField = document.getElementById('textInput');
-        const outputBox = document.getElementById('output');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
         const statsBox = document.getElementById('stats');
+        const downloadBtn = document.getElementById('downloadBtn');
 
-        function generoiKaavio() {
+        function renderKaavio() {
             let syoteRivit = inputField.value.split('\n');
-            let lopullinenRivistys = [];
+            let ruudukkoRivit = [];
             let maxLeveys = 0;
 
             for (let syoteRivi of syoteRivit) {
-                // Jokaista tekstiriviä kohden muodostetaan 7 ruutua korkea lohko
                 let rivit = ["", "", "", "", "", "", ""];
 
                 for (let merkki of syoteRivi) {
-                    let kuvio = FONT_MAP[merkki];
-                    
-                    if (! kuvio) {
-                        // Jos merkkiä ei löydy, laitetaan tyhjää
-                        kuvio = FONT_MAP[' '];
-                    }
-
-                    // Jos kyseessä on pieni kirjain (joka on 5 korkea), keskitetään se pystysuunnassa 7 korkeaan tilaan
+                    let kuvio = FONT_MAP[merkki] || FONT_MAP[' '];
                     let taytettyKuvio = [...kuvio];
+                    
                     if (taytettyKuvio.length === 5) {
                         taytettyKuvio = ["     ", ...taytettyKuvio, "     "];
                     } else if (taytettyKuvio.length === 6) {
@@ -184,33 +202,81 @@ ja viisaus erottaa nämä toisistaan.</textarea>
                     }
 
                     for (let i = 0; i < 7; i++) {
-                        rivit[i] += taytettyKuvio[i] + "  "; // Kirjainten väliin 2 tyhjää ruutua
+                        rivit[i] += taytettyKuvio[i] + "  "; 
                     }
                 }
 
-                // Lisätään valmiit 7 riviä listaan + tyhjä rivi rivien väliin
                 for (let r of rivit) {
-                    let siistiRivi = r.replace(/1/g, "☒").replace(/0/g, " ");
-                    lopullinenRivistys.push(siistiRivi);
-                    if (siistiRivi.length > maxLeveys) maxLeveys = siistiRivi.length;
+                    ruudukkoRivit.push(r);
+                    if (r.length > maxLeveys) maxLeveys = r.length;
                 }
                 
-                // Rivien väliin tyhjä rivi
                 if (syoteRivit.indexOf(syoteRivi) < syoteRivit.length - 1) {
-                    lopullinenRivistys.push(" ".repeat(maxLeveys));
-                    lopullinenRivistys.push(" ".repeat(maxLeveys));
+                    ruudukkoRivit.push(" ".repeat(maxLeveys));
+                    ruudukkoRivit.push(" ".repeat(maxLeveys));
                 }
             }
 
-            outputBox.textContent = lopullinenRivistys.join('\n');
-            let kokonaisKorkeus = lopullinenRivistys.length;
-            statsBox.textContent = `Kaavion arvioitu koko: n. ${maxLeveys} ruutua leveä × ${kokonaisKorkeus} ruutua korkea`;
+            let lopullinenMatriisi = ruudukkoRivit.map(r => r.padEnd(maxLeveys, ' '));
+            let korkeus = lopullinenMatriisi.length;
+
+            let cellSize = 14; 
+            let margin = 20;   
+
+            canvas.width = (maxLeveys * cellSize) + (margin * 2);
+            canvas.height = (korkeus * cellSize) + (margin * 2);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Piirretään ruudukon viivat (himmeät perusviivat ja tummemmat joka 10. ruutu)
+            for (let y = 0; y <= korkeus; y++) {
+                ctx.beginPath();
+                ctx.moveTo(margin, margin + (y * cellSize));
+                ctx.lineTo(margin + (maxLeveys * cellSize), margin + (y * cellSize));
+                ctx.strokeStyle = (y % 10 === 0) ? "#b0c4c6" : "#f0ece1";
+                ctx.lineWidth = (y % 10 === 0) ? 1 : 0.5;
+                ctx.stroke();
+            }
+
+            for (let x = 0; x <= maxLeveys; x++) {
+                ctx.beginPath();
+                ctx.moveTo(margin + (x * cellSize), margin);
+                ctx.lineTo(margin + (x * cellSize), margin + (korkeus * cellSize));
+                ctx.strokeStyle = (x % 10 === 0) ? "#b0c4c6" : "#f0ece1";
+                ctx.lineWidth = (x % 10 === 0) ? 1 : 0.5;
+                ctx.stroke();
+            }
+
+            // Piirretään ristipistot (X)
+            ctx.fillStyle = "#1a2628";
+            ctx.font = `${cellSize - 2}px monospace`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            for (let y = 0; y < korkeus; y++) {
+                for (let x = 0; x < maxLeveys; x++) {
+                    if (lopullinenMatriisi[y][x] === '1') {
+                        let posX = margin + (x * cellSize) + (cellSize / 2);
+                        let posY = margin + (y * cellSize) + (cellSize / 2);
+                        ctx.fillText("✕", posX, posY);
+                    }
+                }
+            }
+
+            statsBox.textContent = `Kaavion koko: ${maxLeveys} × ${korkeus} ruutua`;
         }
 
-        inputField.addEventListener('input', generoiKaavio);
-        
-        // Alustus
-        generoiKaavio();
+        inputField.addEventListener('input', renderKaavio);
+
+        downloadBtn.addEventListener('click', function() {
+            let link = document.createElement('a');
+            link.download = 'tyyneysrukous-ristipistokaavio.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        renderKaavio();
     </script>
 
 </body>
